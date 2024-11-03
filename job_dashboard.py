@@ -100,24 +100,47 @@ if st.button("Extract and Save Job Details"):
     
     st.success("Job details saved successfully!")
 
-# Load data from SQLite and display it in an interactive table
-df = pd.read_sql_query("SELECT id, job_title, company, location, requirements, salary, date FROM applications", conn)
+# Load data from SQLite and display it in an interactive editable table
+df = pd.read_sql_query("SELECT * FROM applications", conn)
 st.subheader("All Tracked Job Applications")
-st.dataframe(df.drop(columns=['id']))  # Display without 'id' column for readability
+
+# Display editable fields for each entry
+editable_df = df.copy()
+for idx in range(len(editable_df)):
+    st.text_input("Job Title", key=f"title_{idx}", value=editable_df.at[idx, "job_title"])
+    st.text_input("Company", key=f"company_{idx}", value=editable_df.at[idx, "company"])
+    st.text_input("Location", key=f"location_{idx}", value=editable_df.at[idx, "location"])
+    st.text_area("Requirements", key=f"requirements_{idx}", value=editable_df.at[idx, "requirements"])
+    st.text_input("Salary", key=f"salary_{idx}", value=editable_df.at[idx, "salary"])
+    st.text_input("Date", key=f"date_{idx}", value=editable_df.at[idx, "date"])
+    st.write("---")
+
+# Save edits back to the database
+if st.button("Save Edits"):
+    for idx in range(len(editable_df)):
+        cursor.execute('''UPDATE applications SET job_title=?, company=?, location=?, requirements=?, salary=?, date=? WHERE id=?''', (
+            st.session_state[f"title_{idx}"],
+            st.session_state[f"company_{idx}"],
+            st.session_state[f"location_{idx}"],
+            st.session_state[f"requirements_{idx}"],
+            st.session_state[f"salary_{idx}"],
+            st.session_state[f"date_{idx}"],
+            editable_df.at[idx, "id"]
+        ))
+    conn.commit()
+    st.success("Edits saved successfully!")
 
 # Download button for exporting table as an Excel file
 st.download_button(
     label="Download as Excel",
-    data=download_excel(df.drop(columns=['id'])),
+    data=download_excel(df),
     file_name="job_applications.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
 # Delete a job entry
 st.subheader("Delete a Job Entry")
-
-# Use only numeric part of the ID for deletion
-job_to_delete = st.selectbox("Select a Job to Delete", df['id'].apply(lambda x: f"ID {x}: {df.loc[df['id'] == x, 'job_title'].values[0]} - {df.loc[df['id'] == x, 'company'].values[0]}"))
+job_to_delete = st.selectbox("Select a Job to Delete", df['id'].apply(lambda x: f"ID {x}: {df.loc[df['id'] == x, 'job_title']} - {df.loc[df['id'] == x, 'company']}"))
 
 if st.button("Delete Selected Job"):
     job_id = int(re.search(r"\d+", job_to_delete).group())  # Extract only the numeric ID
@@ -126,5 +149,5 @@ if st.button("Delete Selected Job"):
     st.success("Job entry deleted successfully!")
     
     # Refresh the DataFrame to update the table
-    df = pd.read_sql_query("SELECT id, job_title, company, location, requirements, salary, date FROM applications", conn)
+    df = pd.read_sql_query("SELECT * FROM applications", conn)
     st.dataframe(df.drop(columns=['id']))
