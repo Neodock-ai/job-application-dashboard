@@ -145,18 +145,27 @@ df['Download Resume'] = df.apply(lambda row: generate_download_link(row['resume'
 
 st.markdown("<div class='section-header'>All Tracked Job Applications</div>", unsafe_allow_html=True)
 
-# Display table with clickable links
-st.write(df.drop(columns=['resume']).to_html(escape=False, index=False), unsafe_allow_html=True)
+# Editable table with download links
+df_editable = df.drop(columns=['resume'])
+df_editable_html = df_editable.to_html(escape=False, index=False)
 
-# Filtering options
-with st.expander("Filter Applications"):
-    selected_company = st.selectbox("Filter by Company", options=["All"] + list(df["company"].unique()))
-    selected_location = st.selectbox("Filter by Location", options=["All"] + list(df["location"].unique()))
+st.write(df_editable_html, unsafe_allow_html=True)
+edited_df = st.data_editor(df_editable, key="editable_table")
 
-    if selected_company != "All":
-        df = df[df["company"] == selected_company]
-    if selected_location != "All":
-        df = df[df["location"] == selected_location]
+# Save edits back to the database
+if st.button("Save Edits"):
+    for idx in edited_df.index:
+        cursor.execute('''UPDATE applications SET job_title=?, company=?, location=?, requirements=?, salary=?, date=? WHERE id=?''', (
+            edited_df.at[idx, "job_title"],
+            edited_df.at[idx, "company"],
+            edited_df.at[idx, "location"],
+            edited_df.at[idx, "requirements"],
+            edited_df.at[idx, "salary"],
+            edited_df.at[idx, "date"],
+            edited_df.at[idx, "id"]
+        ))
+    conn.commit()
+    st.success("Edits saved successfully!")
 
 # Download button for exporting table as an Excel file without the resume data
 st.download_button(
