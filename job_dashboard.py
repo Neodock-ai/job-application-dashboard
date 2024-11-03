@@ -28,6 +28,13 @@ st.markdown("""
             margin-top: 20px;
             margin-bottom: 10px;
         }
+        .resume-link a {
+            color: #4CAF50;
+            text-decoration: none;
+        }
+        .resume-link a:hover {
+            text-decoration: underline;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -131,38 +138,37 @@ if st.button("Extract and Save Job Details"):
     conn.commit()
     st.success("Job details saved successfully!")
 
-# Load data from SQLite and display it in an editable table
+# Load data from SQLite and display it in a collapsible table
 df = pd.read_sql_query("SELECT * FROM applications", conn)
 
 # Generate download links for resumes and add them to a new column in the DataFrame
 def generate_download_link(resume_data, file_id):
     if resume_data:
         b64 = base64.b64encode(resume_data).decode()  # Encode the resume file in base64
-        return f'<a href="data:application/octet-stream;base64,{b64}" download="resume_{file_id}.pdf">Download Resume</a>'
+        return f'<a href="data:application/octet-stream;base64,{b64}" download="resume_{file_id}.pdf" target="_blank">Download Resume</a>'
     return "No Resume"
 
 df['Download Resume'] = df.apply(lambda row: generate_download_link(row['resume'], row['id']), axis=1)
 
-st.markdown("<div class='section-header'>All Tracked Job Applications</div>", unsafe_allow_html=True)
+# Display collapsible table with clickable download links
+with st.expander("All Tracked Job Applications", expanded=False):
+    st.markdown(df.drop(columns=['resume']).to_html(escape=False, index=False, classes='resume-link'), unsafe_allow_html=True)
 
-# Editable table with download links
-df_editable = df.drop(columns=['resume'])
-df_editable_html = df_editable.to_html(escape=False, index=False)
-
-st.write(df_editable_html, unsafe_allow_html=True)
-edited_df = st.data_editor(df_editable, key="editable_table")
+# Editable table for quick inline editing
+st.markdown("<div class='section-header'>Editable Job Applications</div>", unsafe_allow_html=True)
+editable_df = st.data_editor(df.drop(columns=['resume', 'Download Resume']), key="editable_table")
 
 # Save edits back to the database
 if st.button("Save Edits"):
-    for idx in edited_df.index:
+    for idx in editable_df.index:
         cursor.execute('''UPDATE applications SET job_title=?, company=?, location=?, requirements=?, salary=?, date=? WHERE id=?''', (
-            edited_df.at[idx, "job_title"],
-            edited_df.at[idx, "company"],
-            edited_df.at[idx, "location"],
-            edited_df.at[idx, "requirements"],
-            edited_df.at[idx, "salary"],
-            edited_df.at[idx, "date"],
-            edited_df.at[idx, "id"]
+            editable_df.at[idx, "job_title"],
+            editable_df.at[idx, "company"],
+            editable_df.at[idx, "location"],
+            editable_df.at[idx, "requirements"],
+            editable_df.at[idx, "salary"],
+            editable_df.at[idx, "date"],
+            editable_df.at[idx, "id"]
         ))
     conn.commit()
     st.success("Edits saved successfully!")
