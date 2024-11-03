@@ -148,7 +148,7 @@ with st.expander("Filter Applications"):
 # Display editable table
 edited_df = st.data_editor(df, num_rows="dynamic", key="editable_table")
 
-# Save edits back to the database
+# Save edits back to the database and update download links
 if st.button("Save Edits"):
     for idx in edited_df.index:
         cursor.execute('''UPDATE applications SET job_title=?, company=?, location=?, requirements=?, salary=?, date=? WHERE id=?''', (
@@ -163,7 +163,10 @@ if st.button("Save Edits"):
     conn.commit()
     st.success("Edits saved successfully!")
 
-# Collapsible section for downloading resumes
+    # Update the DataFrame with the latest data
+    df = edited_df
+
+# Collapsible section for downloading resumes with updated information
 with st.expander("Download Resumes", expanded=False):
     for idx, row in df.iterrows():
         resume_data = row["resume"]
