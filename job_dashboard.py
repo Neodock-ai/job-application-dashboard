@@ -128,7 +128,7 @@ df = pd.read_sql_query("SELECT * FROM applications", conn)
 st.markdown("<div class='section-header'>All Tracked Job Applications</div>", unsafe_allow_html=True)
 
 # Display editable table
-edited_df = st.experimental_data_editor(df, num_rows="dynamic", key="editable_table")
+edited_df = st.data_editor(df, num_rows="dynamic", key="editable_table")
 
 # Save edits back to the database
 if st.button("Save Edits"):
