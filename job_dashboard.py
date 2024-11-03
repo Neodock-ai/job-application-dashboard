@@ -20,26 +20,11 @@ st.markdown("""
         .stButton>button:hover {
             background-color: #45a049;
         }
-        .stTextInput>div>input {
-            border-radius: 5px;
-            padding: 8px;
-            margin-bottom: 5px;
-        }
-        .stTextArea>div>textarea {
-            border-radius: 5px;
-            padding: 8px;
-        }
         .section-header {
             font-size: 20px;
             font-weight: bold;
             color: #333;
             margin-top: 20px;
-        }
-        .expander-content {
-            background-color: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            padding: 10px;
             margin-bottom: 10px;
         }
     </style>
@@ -138,32 +123,24 @@ if st.button("Extract and Save Job Details"):
     conn.commit()
     st.success("Job details saved successfully!")
 
-# Load data from SQLite and display it in expandable sections
+# Load data from SQLite and display it in an editable table
 df = pd.read_sql_query("SELECT * FROM applications", conn)
 st.markdown("<div class='section-header'>All Tracked Job Applications</div>", unsafe_allow_html=True)
 
-# Display jobs in an expandable format
-for idx in df.index:
-    with st.expander(f"{df.at[idx, 'job_title']} - {df.at[idx, 'company']}"):
-        with st.container():
-            st.text_input("Job Title", key=f"title_{idx}", value=df.at[idx, "job_title"])
-            st.text_input("Company", key=f"company_{idx}", value=df.at[idx, "company"])
-            st.text_input("Location", key=f"location_{idx}", value=df.at[idx, "location"])
-            st.text_area("Requirements", key=f"requirements_{idx}", value=df.at[idx, "requirements"])
-            st.text_input("Salary", key=f"salary_{idx}", value=df.at[idx, "salary"])
-            st.text_input("Date", key=f"date_{idx}", value=df.at[idx, "date"])
+# Display editable table
+edited_df = st.experimental_data_editor(df, num_rows="dynamic", key="editable_table")
 
 # Save edits back to the database
 if st.button("Save Edits"):
-    for idx in df.index:
+    for idx in edited_df.index:
         cursor.execute('''UPDATE applications SET job_title=?, company=?, location=?, requirements=?, salary=?, date=? WHERE id=?''', (
-            st.session_state[f"title_{idx}"],
-            st.session_state[f"company_{idx}"],
-            st.session_state[f"location_{idx}"],
-            st.session_state[f"requirements_{idx}"],
-            st.session_state[f"salary_{idx}"],
-            st.session_state[f"date_{idx}"],
-            df.at[idx, "id"]
+            edited_df.at[idx, "job_title"],
+            edited_df.at[idx, "company"],
+            edited_df.at[idx, "location"],
+            edited_df.at[idx, "requirements"],
+            edited_df.at[idx, "salary"],
+            edited_df.at[idx, "date"],
+            edited_df.at[idx, "id"]
         ))
     conn.commit()
     st.success("Edits saved successfully!")
@@ -171,7 +148,7 @@ if st.button("Save Edits"):
 # Download button for exporting table as an Excel file
 st.download_button(
     label="Download as Excel",
-    data=download_excel(df),
+    data=download_excel(edited_df),
     file_name="job_applications.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
