@@ -5,6 +5,7 @@ from datetime import datetime
 import pandas as pd
 import re
 from io import BytesIO
+import base64
 
 # Custom CSS styling for a polished look
 st.markdown("""
@@ -90,10 +91,21 @@ def extract_job_details(description):
     job_details["Requirements"] = job_details["Requirements"].strip()
     return job_details
 
-# Function to create a downloadable Excel file from DataFrame
-def download_excel(dataframe):
+# Function to create a downloadable Excel file from DataFrame and include resume links
+def download_excel_with_resumes(dataframe):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        # Add resumes as separate files
+        for index, row in dataframe.iterrows():
+            resume_data = row['resume']
+            if resume_data:
+                # Create a download link for the resume
+                resume_filename = f"resume_{row['id']}.pdf"
+                with open(resume_filename, "wb") as resume_file:
+                    resume_file.write(resume_data)
+                dataframe.at[index, 'resume'] = f"Download {resume_filename}"
+        
+        # Write dataframe to Excel
         dataframe.to_excel(writer, index=False, sheet_name='Applications')
     output.seek(0)
     return output
@@ -162,11 +174,11 @@ if st.button("Save Edits"):
     conn.commit()
     st.success("Edits saved successfully!")
 
-# Download button for exporting table as an Excel file
+# Download button for exporting table as an Excel file with resume links
 st.download_button(
     label="Download as Excel",
-    data=download_excel(edited_df),
-    file_name="job_applications.xlsx",
+    data=download_excel_with_resumes(edited_df),
+    file_name="job_applications_with_resumes.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
