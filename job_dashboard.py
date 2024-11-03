@@ -33,7 +33,7 @@ conn.commit()
 # Initialize Hugging Face NER pipeline
 ner_pipeline = pipeline("ner", model="dbmdz/bert-large-cased-finetuned-conll03-english", grouped_entities=True)
 
-# Function to extract job details using Hugging Face Transformers
+# Enhanced extraction function for job details
 def extract_job_details(description):
     entities = ner_pipeline(description)
     job_details = {
@@ -44,12 +44,12 @@ def extract_job_details(description):
         "Salary": ""
     }
     
-    # Improved salary extraction pattern
+    # Regex for salary extraction
     salary_match = re.search(r"\$\d{2,3}(?:,\d{3})?(?:K)?(?:\s*-\s*\$\d{2,3}(?:,\d{3})?(?:K)?)?", description, re.IGNORECASE)
     if salary_match:
         job_details["Salary"] = salary_match.group().strip()
 
-    requirements = []
+    # Capture entities like company and location
     for entity in entities:
         if entity['entity_group'] == 'ORG' and not job_details["Company"]:
             job_details["Company"] = entity['word']
@@ -61,9 +61,9 @@ def extract_job_details(description):
         if "role:" in line.lower() or "title" in line.lower():
             job_details["Job Title"] = line.replace("Role:", "").replace("Title:", "").strip()
         elif any(keyword in line.lower() for keyword in ["requirement", "responsibility", "duties", "developing", "analyzing"]):
-            requirements.append(line.strip())
+            job_details["Requirements"] += line.strip() + " "
     
-    job_details["Requirements"] = " ".join(requirements)
+    job_details["Requirements"] = job_details["Requirements"].strip()
     return job_details
 
 # Function to create a downloadable Excel file from DataFrame
@@ -100,32 +100,24 @@ if st.button("Extract and Save Job Details"):
     
     st.success("Job details saved successfully!")
 
-# Load data from SQLite and display it in an interactive editable table
+# Load data from SQLite and display it in an editable table
 df = pd.read_sql_query("SELECT * FROM applications", conn)
 st.subheader("All Tracked Job Applications")
 
-# Display editable fields for each entry
-editable_df = df.copy()
-for idx in range(len(editable_df)):
-    st.text_input("Job Title", key=f"title_{idx}", value=editable_df.at[idx, "job_title"])
-    st.text_input("Company", key=f"company_{idx}", value=editable_df.at[idx, "company"])
-    st.text_input("Location", key=f"location_{idx}", value=editable_df.at[idx, "location"])
-    st.text_area("Requirements", key=f"requirements_{idx}", value=editable_df.at[idx, "requirements"])
-    st.text_input("Salary", key=f"salary_{idx}", value=editable_df.at[idx, "salary"])
-    st.text_input("Date", key=f"date_{idx}", value=editable_df.at[idx, "date"])
-    st.write("---")
+# Display editable DataFrame in the style of an Excel sheet
+edited_df = st.experimental_data_editor(df, num_rows="dynamic", key="editable_table")
 
 # Save edits back to the database
 if st.button("Save Edits"):
-    for idx in range(len(editable_df)):
+    for idx in range(len(edited_df)):
         cursor.execute('''UPDATE applications SET job_title=?, company=?, location=?, requirements=?, salary=?, date=? WHERE id=?''', (
-            st.session_state[f"title_{idx}"],
-            st.session_state[f"company_{idx}"],
-            st.session_state[f"location_{idx}"],
-            st.session_state[f"requirements_{idx}"],
-            st.session_state[f"salary_{idx}"],
-            st.session_state[f"date_{idx}"],
-            editable_df.at[idx, "id"]
+            edited_df.at[idx, "job_title"],
+            edited_df.at[idx, "company"],
+            edited_df.at[idx, "location"],
+            edited_df.at[idx, "requirements"],
+            edited_df.at[idx, "salary"],
+            edited_df.at[idx, "date"],
+            edited_df.at[idx, "id"]
         ))
     conn.commit()
     st.success("Edits saved successfully!")
@@ -133,7 +125,7 @@ if st.button("Save Edits"):
 # Download button for exporting table as an Excel file
 st.download_button(
     label="Download as Excel",
-    data=download_excel(df),
+    data=download_excel(edited_df),
     file_name="job_applications.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
@@ -150,4 +142,4 @@ if st.button("Delete Selected Job"):
     
     # Refresh the DataFrame to update the table
     df = pd.read_sql_query("SELECT * FROM applications", conn)
-    st.dataframe(df.drop(columns=['id']))
+    st.experimental_data_editor(df, num_rows="dynamic", key="editable_table")
