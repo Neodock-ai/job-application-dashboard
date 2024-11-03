@@ -133,7 +133,20 @@ if st.button("Extract and Save Job Details"):
 
 # Load data from SQLite and display it in an editable table
 df = pd.read_sql_query("SELECT * FROM applications", conn)
+
+# Generate download links for resumes and add them to a new column in the DataFrame
+def generate_download_link(resume_data, file_id):
+    if resume_data:
+        b64 = base64.b64encode(resume_data).decode()  # Encode the resume file in base64
+        return f'<a href="data:application/octet-stream;base64,{b64}" download="resume_{file_id}.pdf">Download Resume</a>'
+    return "No Resume"
+
+df['Download Resume'] = df.apply(lambda row: generate_download_link(row['resume'], row['id']), axis=1)
+
 st.markdown("<div class='section-header'>All Tracked Job Applications</div>", unsafe_allow_html=True)
+
+# Display table with clickable links
+st.write(df.drop(columns=['resume']).to_html(escape=False, index=False), unsafe_allow_html=True)
 
 # Filtering options
 with st.expander("Filter Applications"):
@@ -145,37 +158,10 @@ with st.expander("Filter Applications"):
     if selected_location != "All":
         df = df[df["location"] == selected_location]
 
-# Display editable table
-edited_df = st.data_editor(df, num_rows="dynamic", key="editable_table")
-
-# Save edits back to the database
-if st.button("Save Edits"):
-    for idx in edited_df.index:
-        cursor.execute('''UPDATE applications SET job_title=?, company=?, location=?, requirements=?, salary=?, date=? WHERE id=?''', (
-            edited_df.at[idx, "job_title"],
-            edited_df.at[idx, "company"],
-            edited_df.at[idx, "location"],
-            edited_df.at[idx, "requirements"],
-            edited_df.at[idx, "salary"],
-            edited_df.at[idx, "date"],
-            edited_df.at[idx, "id"]
-        ))
-    conn.commit()
-    st.success("Edits saved successfully!")
-
-# Display resumes with download buttons
-st.markdown("<div class='section-header'>Download Resumes</div>", unsafe_allow_html=True)
-for idx, row in df.iterrows():
-    resume_data = row["resume"]
-    if resume_data:
-        b64 = base64.b64encode(resume_data).decode()  # Encode the resume file in base64
-        href = f'<a href="data:application/octet-stream;base64,{b64}" download="resume_{row["id"]}.pdf">Download Resume for {row["job_title"]}</a>'
-        st.markdown(href, unsafe_allow_html=True)
-
 # Download button for exporting table as an Excel file without the resume data
 st.download_button(
     label="Download as Excel",
-    data=download_excel(edited_df),
+    data=download_excel(df.drop(columns=['Download Resume', 'resume'])),
     file_name="job_applications.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
