@@ -34,9 +34,9 @@ st.markdown("""
 conn = sqlite3.connect("job_applications.db")
 cursor = conn.cursor()
 
-# Check if salary column exists; if not, add it
+# Check if resume column exists; if not, add it
 try:
-    cursor.execute('ALTER TABLE applications ADD COLUMN salary TEXT')
+    cursor.execute('ALTER TABLE applications ADD COLUMN resume BLOB')
     conn.commit()
 except sqlite3.OperationalError:
     pass  # Column already exists or table has not been created yet
@@ -49,7 +49,8 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS applications (
                   location TEXT,
                   requirements TEXT,
                   salary TEXT,
-                  date TEXT
+                  date TEXT,
+                  resume BLOB
                   )''')
 conn.commit()
 
@@ -103,22 +104,28 @@ st.title("Job Application Tracking Dashboard")
 st.markdown("<div class='section-header'>Paste the Job Description Here</div>", unsafe_allow_html=True)
 description = st.text_area("Job Description")
 
+resume_file = st.file_uploader("Upload Resume", type=["pdf", "doc", "docx"])
+
 if st.button("Extract and Save Job Details"):
     job_details = extract_job_details(description)
     job_details["Date"] = datetime.now().strftime("%Y-%m-%d")
+
+    # Read resume file if uploaded
+    resume_data = resume_file.read() if resume_file else None
 
     st.markdown("<div class='section-header'>Extracted Job Details</div>", unsafe_allow_html=True)
     for key, value in job_details.items():
         st.write(f"**{key}:** {value}")
 
-    cursor.execute('''INSERT INTO applications (job_title, company, location, requirements, salary, date)
-                      VALUES (?, ?, ?, ?, ?, ?)''', (
+    cursor.execute('''INSERT INTO applications (job_title, company, location, requirements, salary, date, resume)
+                      VALUES (?, ?, ?, ?, ?, ?, ?)''', (
                       job_details["Job Title"],
                       job_details["Company"],
                       job_details["Location"],
                       job_details["Requirements"],
                       job_details["Salary"],
-                      job_details["Date"]
+                      job_details["Date"],
+                      resume_data
                       ))
     conn.commit()
     st.success("Job details saved successfully!")
@@ -126,6 +133,16 @@ if st.button("Extract and Save Job Details"):
 # Load data from SQLite and display it in an editable table
 df = pd.read_sql_query("SELECT * FROM applications", conn)
 st.markdown("<div class='section-header'>All Tracked Job Applications</div>", unsafe_allow_html=True)
+
+# Filtering options
+with st.expander("Filter Applications"):
+    selected_company = st.selectbox("Filter by Company", options=["All"] + list(df["company"].unique()))
+    selected_location = st.selectbox("Filter by Location", options=["All"] + list(df["location"].unique()))
+
+    if selected_company != "All":
+        df = df[df["company"] == selected_company]
+    if selected_location != "All":
+        df = df[df["location"] == selected_location]
 
 # Display editable table
 edited_df = st.data_editor(df, num_rows="dynamic", key="editable_table")
