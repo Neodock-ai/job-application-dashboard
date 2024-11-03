@@ -163,14 +163,14 @@ if st.button("Save Edits"):
     conn.commit()
     st.success("Edits saved successfully!")
 
-# Display resumes with download buttons
-st.markdown("<div class='section-header'>Download Resumes</div>", unsafe_allow_html=True)
-for idx, row in df.iterrows():
-    resume_data = row["resume"]
-    if resume_data:
-        b64 = base64.b64encode(resume_data).decode()  # Encode the resume file in base64
-        href = f'<a href="data:application/octet-stream;base64,{b64}" download="resume_{row["id"]}.pdf">Download Resume for {row["job_title"]}</a>'
-        st.markdown(href, unsafe_allow_html=True)
+# Collapsible section for downloading resumes
+with st.expander("Download Resumes", expanded=False):
+    for idx, row in df.iterrows():
+        resume_data = row["resume"]
+        if resume_data:
+            b64 = base64.b64encode(resume_data).decode()  # Encode the resume file in base64
+            href = f'<a href="data:application/octet-stream;base64,{b64}" download="resume_{row["id"]}_{row["job_title"]}_{row["company"]}.pdf">Download Resume for ID {row["id"]}, Role: {row["job_title"]}, Company: {row["company"]}</a>'
+            st.markdown(href, unsafe_allow_html=True)
 
 # Download button for exporting table as an Excel file without the resume data
 st.download_button(
