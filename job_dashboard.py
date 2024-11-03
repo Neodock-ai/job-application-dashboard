@@ -6,6 +6,45 @@ import pandas as pd
 import re
 from io import BytesIO
 
+# Custom CSS styling for a polished look
+st.markdown("""
+    <style>
+        .stButton>button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .stButton>button:hover {
+            background-color: #45a049;
+        }
+        .stTextInput>div>input {
+            border-radius: 5px;
+            padding: 8px;
+            margin-bottom: 5px;
+        }
+        .stTextArea>div>textarea {
+            border-radius: 5px;
+            padding: 8px;
+        }
+        .section-header {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            margin-top: 20px;
+        }
+        .expander-content {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 # Initialize SQLite database
 conn = sqlite3.connect("job_applications.db")
 cursor = conn.cursor()
@@ -76,13 +115,14 @@ def download_excel(dataframe):
 # Streamlit App
 st.title("Job Application Tracking Dashboard")
 
-description = st.text_area("Paste the Job Description Here")
+st.markdown("<div class='section-header'>Paste the Job Description Here</div>", unsafe_allow_html=True)
+description = st.text_area("Job Description")
 
 if st.button("Extract and Save Job Details"):
     job_details = extract_job_details(description)
     job_details["Date"] = datetime.now().strftime("%Y-%m-%d")
 
-    st.write("**Extracted Job Details:**")
+    st.markdown("<div class='section-header'>Extracted Job Details</div>", unsafe_allow_html=True)
     for key, value in job_details.items():
         st.write(f"**{key}:** {value}")
 
@@ -96,22 +136,22 @@ if st.button("Extract and Save Job Details"):
                       job_details["Date"]
                       ))
     conn.commit()
-    
     st.success("Job details saved successfully!")
 
-# Load data from SQLite and display it in editable fields
+# Load data from SQLite and display it in expandable sections
 df = pd.read_sql_query("SELECT * FROM applications", conn)
-st.subheader("All Tracked Job Applications")
+st.markdown("<div class='section-header'>All Tracked Job Applications</div>", unsafe_allow_html=True)
 
-# Editable input fields for each row
+# Display jobs in an expandable format
 for idx in df.index:
-    st.text_input("Job Title", key=f"title_{idx}", value=df.at[idx, "job_title"])
-    st.text_input("Company", key=f"company_{idx}", value=df.at[idx, "company"])
-    st.text_input("Location", key=f"location_{idx}", value=df.at[idx, "location"])
-    st.text_area("Requirements", key=f"requirements_{idx}", value=df.at[idx, "requirements"])
-    st.text_input("Salary", key=f"salary_{idx}", value=df.at[idx, "salary"])
-    st.text_input("Date", key=f"date_{idx}", value=df.at[idx, "date"])
-    st.write("---")
+    with st.expander(f"{df.at[idx, 'job_title']} - {df.at[idx, 'company']}"):
+        with st.container():
+            st.text_input("Job Title", key=f"title_{idx}", value=df.at[idx, "job_title"])
+            st.text_input("Company", key=f"company_{idx}", value=df.at[idx, "company"])
+            st.text_input("Location", key=f"location_{idx}", value=df.at[idx, "location"])
+            st.text_area("Requirements", key=f"requirements_{idx}", value=df.at[idx, "requirements"])
+            st.text_input("Salary", key=f"salary_{idx}", value=df.at[idx, "salary"])
+            st.text_input("Date", key=f"date_{idx}", value=df.at[idx, "date"])
 
 # Save edits back to the database
 if st.button("Save Edits"):
@@ -137,7 +177,7 @@ st.download_button(
 )
 
 # Delete a job entry
-st.subheader("Delete a Job Entry")
+st.markdown("<div class='section-header'>Delete a Job Entry</div>", unsafe_allow_html=True)
 job_to_delete = st.selectbox("Select a Job to Delete", [f"ID {row['id']}: {row['job_title']} - {row['company']}" for idx, row in df.iterrows()])
 
 if st.button("Delete Selected Job"):
