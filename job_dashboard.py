@@ -3,7 +3,6 @@ import sqlite3
 from transformers import pipeline
 from datetime import datetime
 import pandas as pd
-import os
 import re
 from io import BytesIO
 
@@ -100,24 +99,31 @@ if st.button("Extract and Save Job Details"):
     
     st.success("Job details saved successfully!")
 
-# Load data from SQLite and display it in an editable table
+# Load data from SQLite and display it in editable fields
 df = pd.read_sql_query("SELECT * FROM applications", conn)
 st.subheader("All Tracked Job Applications")
 
-# Display editable DataFrame in the style of an Excel sheet
-edited_df = st.experimental_data_editor(df, num_rows="dynamic", key="editable_table")
+# Editable input fields for each row
+for idx in df.index:
+    st.text_input("Job Title", key=f"title_{idx}", value=df.at[idx, "job_title"])
+    st.text_input("Company", key=f"company_{idx}", value=df.at[idx, "company"])
+    st.text_input("Location", key=f"location_{idx}", value=df.at[idx, "location"])
+    st.text_area("Requirements", key=f"requirements_{idx}", value=df.at[idx, "requirements"])
+    st.text_input("Salary", key=f"salary_{idx}", value=df.at[idx, "salary"])
+    st.text_input("Date", key=f"date_{idx}", value=df.at[idx, "date"])
+    st.write("---")
 
 # Save edits back to the database
 if st.button("Save Edits"):
-    for idx in range(len(edited_df)):
+    for idx in df.index:
         cursor.execute('''UPDATE applications SET job_title=?, company=?, location=?, requirements=?, salary=?, date=? WHERE id=?''', (
-            edited_df.at[idx, "job_title"],
-            edited_df.at[idx, "company"],
-            edited_df.at[idx, "location"],
-            edited_df.at[idx, "requirements"],
-            edited_df.at[idx, "salary"],
-            edited_df.at[idx, "date"],
-            edited_df.at[idx, "id"]
+            st.session_state[f"title_{idx}"],
+            st.session_state[f"company_{idx}"],
+            st.session_state[f"location_{idx}"],
+            st.session_state[f"requirements_{idx}"],
+            st.session_state[f"salary_{idx}"],
+            st.session_state[f"date_{idx}"],
+            df.at[idx, "id"]
         ))
     conn.commit()
     st.success("Edits saved successfully!")
@@ -125,21 +131,19 @@ if st.button("Save Edits"):
 # Download button for exporting table as an Excel file
 st.download_button(
     label="Download as Excel",
-    data=download_excel(edited_df),
+    data=download_excel(df),
     file_name="job_applications.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
 # Delete a job entry
 st.subheader("Delete a Job Entry")
-job_to_delete = st.selectbox("Select a Job to Delete", df['id'].apply(lambda x: f"ID {x}: {df.loc[df['id'] == x, 'job_title']} - {df.loc[df['id'] == x, 'company']}"))
+job_to_delete = st.selectbox("Select a Job to Delete", [f"ID {row['id']}: {row['job_title']} - {row['company']}" for idx, row in df.iterrows()])
 
 if st.button("Delete Selected Job"):
-    job_id = int(re.search(r"\d+", job_to_delete).group())  # Extract only the numeric ID
-    cursor.execute("DELETE FROM applications WHERE id=?", (job_id,))
-    conn.commit()
-    st.success("Job entry deleted successfully!")
-    
-    # Refresh the DataFrame to update the table
-    df = pd.read_sql_query("SELECT * FROM applications", conn)
-    st.experimental_data_editor(df, num_rows="dynamic", key="editable_table")
+    if job_to_delete:
+        job_id = int(re.search(r"\d+", job_to_delete).group())
+        cursor.execute("DELETE FROM applications WHERE id=?", (job_id,))
+        conn.commit()
+        st.success("Job entry deleted successfully!")
+        st.experimental_rerun()  # Refresh the app to reflect the changes
