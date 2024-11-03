@@ -91,21 +91,10 @@ def extract_job_details(description):
     job_details["Requirements"] = job_details["Requirements"].strip()
     return job_details
 
-# Function to create a downloadable Excel file from DataFrame and include resume links
-def download_excel_with_resumes(dataframe):
+# Function to create a downloadable Excel file from DataFrame
+def download_excel(dataframe):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        # Add resumes as separate files
-        for index, row in dataframe.iterrows():
-            resume_data = row['resume']
-            if resume_data:
-                # Create a download link for the resume
-                resume_filename = f"resume_{row['id']}.pdf"
-                with open(resume_filename, "wb") as resume_file:
-                    resume_file.write(resume_data)
-                dataframe.at[index, 'resume'] = f"Download {resume_filename}"
-        
-        # Write dataframe to Excel
         dataframe.to_excel(writer, index=False, sheet_name='Applications')
     output.seek(0)
     return output
@@ -174,11 +163,20 @@ if st.button("Save Edits"):
     conn.commit()
     st.success("Edits saved successfully!")
 
-# Download button for exporting table as an Excel file with resume links
+# Display resumes with download buttons
+st.markdown("<div class='section-header'>Download Resumes</div>", unsafe_allow_html=True)
+for idx, row in df.iterrows():
+    resume_data = row["resume"]
+    if resume_data:
+        b64 = base64.b64encode(resume_data).decode()  # Encode the resume file in base64
+        href = f'<a href="data:application/octet-stream;base64,{b64}" download="resume_{row["id"]}.pdf">Download Resume for {row["job_title"]}</a>'
+        st.markdown(href, unsafe_allow_html=True)
+
+# Download button for exporting table as an Excel file without the resume data
 st.download_button(
     label="Download as Excel",
-    data=download_excel_with_resumes(edited_df),
-    file_name="job_applications_with_resumes.xlsx",
+    data=download_excel(edited_df),
+    file_name="job_applications.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
