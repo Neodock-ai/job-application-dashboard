@@ -150,9 +150,20 @@ def generate_download_link(resume_data, file_id):
 
 df['Download Resume'] = df.apply(lambda row: generate_download_link(row['resume'], row['id']), axis=1)
 
-# Display collapsible table with clickable download links
+# Filtering options for Company and Location
+with st.expander("Filter Applications"):
+    selected_company = st.selectbox("Filter by Company", options=["All"] + sorted(df["company"].unique()))
+    selected_location = st.selectbox("Filter by Location", options=["All"] + sorted(df["location"].unique()))
+
+    filtered_df = df
+    if selected_company != "All":
+        filtered_df = filtered_df[filtered_df["company"] == selected_company]
+    if selected_location != "All":
+        filtered_df = filtered_df[filtered_df["location"] == selected_location]
+
+# Display collapsible table without 'requirements' column and with clickable download links
 with st.expander("All Tracked Job Applications", expanded=False):
-    st.markdown(df.drop(columns=['resume']).to_html(escape=False, index=False, classes='resume-link'), unsafe_allow_html=True)
+    st.markdown(filtered_df.drop(columns=['requirements', 'resume']).to_html(escape=False, index=False, classes='resume-link'), unsafe_allow_html=True)
 
 # Editable table for quick inline editing
 st.markdown("<div class='section-header'>Editable Job Applications</div>", unsafe_allow_html=True)
@@ -173,11 +184,11 @@ if st.button("Save Edits"):
     conn.commit()
     st.success("Edits saved successfully!")
 
-# Download button for exporting table as an Excel file without the resume data
+# Download button for exporting the filtered table as an Excel file without the resume data
 st.download_button(
-    label="Download as Excel",
-    data=download_excel(df.drop(columns=['Download Resume', 'resume'])),
-    file_name="job_applications.xlsx",
+    label="Download Filtered Entries as Excel",
+    data=download_excel(filtered_df.drop(columns=['Download Resume', 'resume'])),
+    file_name="filtered_job_applications.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
